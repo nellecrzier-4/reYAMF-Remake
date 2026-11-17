@@ -535,15 +535,22 @@ class AppWindow(
         }
     }
 
+    private var isDestroyed = false
+
     private fun onDestroy() {
-        context.unregisterReceiver(broadcastReceiver)
-        Instances.iWindowManager.removeRotationWatcher(rotationWatcher)
-        Instances.activityTaskManager.unregisterTaskStackListener(taskStackListener)
+        // onDestroy can be triggered from several places (close button, task removal, etc.)
+        // Guard against double invocation, which crashes on unregisterReceiver.
+        if (isDestroyed) return
+        isDestroyed = true
+
+        runCatching { context.unregisterReceiver(broadcastReceiver) }
+        runCatching { Instances.iWindowManager.removeRotationWatcher(rotationWatcher) }
+        runCatching { Instances.activityTaskManager.unregisterTaskStackListener(taskStackListener) }
         YAMFManager.removeWindow(displayId)
-        virtualDisplay.release()
-        Instances.windowManager.removeView(binding.root)
-        Instances.windowManager.removeView(bindingLeftBackGesture.root)
-        Instances.windowManager.removeView(bindingRightBackGesture.root)
+        runCatching { virtualDisplay.release() }
+        runCatching { Instances.windowManager.removeView(binding.root) }
+        runCatching { Instances.windowManager.removeView(bindingLeftBackGesture.root) }
+        runCatching { Instances.windowManager.removeView(bindingRightBackGesture.root) }
     }
 
     private fun getTopRootTask(): ActivityTaskManager.RootTaskInfo? {
